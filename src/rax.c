@@ -179,7 +179,9 @@ static inline void raxStackFree(raxStack *ts) {
     (((n)->iskey && !(n)->isnull)*sizeof(void*)) \
 )
 
-/* Allocate a new non compressed node with the specified number of children.
+/* 用来创建一个新的非压缩节点，children 表示该非压缩节点子节点的个数
+ * datafield 表示是否要为value 指针分配空间
+ * Allocate a new non compressed node with the specified number of children.
  * If datafiled is true, the allocation is made large enough to hold the
  * associated data pointer.
  * Returns the new node pointer. On out of memory NULL is returned. */
@@ -196,7 +198,7 @@ raxNode *raxNewNode(size_t children, int datafield) {
     return node;
 }
 
-/* Allocate a new rax and return its pointer. On out of memory the function
+/* 会调用 rax_malloc 函数 分配一个新的 rax 结构体空间 Allocate a new rax and return its pointer. On out of memory the function
  * returns NULL. */
 rax *raxNew(void) {
     rax *rax = rax_malloc(sizeof(*rax));
@@ -384,7 +386,8 @@ raxNode *raxAddChild(raxNode *n, unsigned char c, raxNode **childptr, raxNode **
     return n;
 }
 
-/* Turn the node 'n', that must be a node without any children, into a
+/* 实际创建压缩节点 是通过这个函数来实现的
+ * Turn the node 'n', that must be a node without any children, into a
  * compressed node representing a set of nodes linked one after the other
  * and having exactly one child each. The node can be a key or not: this
  * property and the associated value if any will be preserved.
@@ -453,7 +456,9 @@ raxNode *raxCompressNode(raxNode *n, unsigned char *s, size_t len, raxNode **chi
  * When instead we stop at a compressed node and *splitpos is zero, it
  * means that the current node represents the key (that is, none of the
  * compressed node characters are needed to represent the key, just all
- * its parents nodes). */
+ * its parents nodes).
+ * 需要在 Radix Tree 中查找、插入或是删除节点时，都会调用该函数
+ *  */
 static inline size_t raxLowWalk(rax *rax, unsigned char *s, size_t len, raxNode **stopnode, raxNode ***plink, int *splitpos, raxStack *ts) {
     raxNode *h = rax->head;
     raxNode **parentlink = &rax->head;
@@ -497,7 +502,8 @@ static inline size_t raxLowWalk(rax *rax, unsigned char *s, size_t len, raxNode 
     return i;
 }
 
-/* Insert the element 's' of size 'len', setting as auxiliary data
+/* 用来向 Radix Tree 中插入一个长度为 len 的字符串 s
+ * Insert the element 's' of size 'len', setting as auxiliary data
  * the pointer 'data'. If the element is already present, the associated
  * data is updated (only if 'overwrite' is set to 1), and 0 is returned,
  * otherwise the element is inserted and 1 is returned. On out of memory the
