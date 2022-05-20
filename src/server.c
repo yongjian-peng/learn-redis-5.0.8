@@ -2060,6 +2060,7 @@ void initServer(void) {
 
     createSharedObjects();
     adjustOpenFilesLimit();
+    // 创建事件循环框架
     server.el = aeCreateEventLoop(server.maxclients+CONFIG_FDSET_INCR);
     if (server.el == NULL) {
         serverLog(LL_WARNING,
@@ -2069,7 +2070,7 @@ void initServer(void) {
     }
     server.db = zmalloc(sizeof(redisDb)*server.dbnum);
 
-    /* Open the TCP listening socket for the user commands. */
+    /* 开始监听设置的网络端口 Open the TCP listening socket for the user commands. */
     if (server.port != 0 &&
         listenToPort(server.port,server.ipfd,&server.ipfd_count) == C_ERR)
         exit(1);
@@ -2094,10 +2095,15 @@ void initServer(void) {
 
     /* 为每个数据库执行初始化操作 Create the Redis databases, and initialize other internal state. */
     for (j = 0; j < server.dbnum; j++) {
+        // 创建全局哈希表
         server.db[j].dict = dictCreate(&dbDictType,NULL);
+        // 创建过期 key 的信息表
         server.db[j].expires = dictCreate(&keyptrDictType,NULL);
+        // 为被 BLPOP 阻塞的 key 创建信息表
         server.db[j].blocking_keys = dictCreate(&keylistDictType,NULL);
+        // 为将执行 PUSH 的阻塞key 创建信息表
         server.db[j].ready_keys = dictCreate(&objectKeyPointerValueDictType,NULL);
+        // 为被MULTI、WATCH操作监听的key创建信息表
         server.db[j].watched_keys = dictCreate(&keylistDictType,NULL);
         server.db[j].id = j;
         server.db[j].avg_ttl = 0;
@@ -2140,7 +2146,8 @@ void initServer(void) {
     server.aof_last_write_errno = 0;
     server.repl_good_slaves_count = 0;
 
-    /* Create the timer callback, this is our way to process many background
+    /* 为server后台任务创建定时任务
+     * Create the timer callback, this is our way to process many background
      * operations incrementally, like clients timeout, eviction of unaccessed
      * expired keys and so forth. */
     if (aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) {
@@ -2148,7 +2155,8 @@ void initServer(void) {
         exit(1);
     }
 
-    /* Create an event handler for accepting new connections in TCP and Unix
+    /* 为每一个监听的IP设置连接事件的处理函数 accepTcpHandler
+     * Create an event handler for accepting new connections in TCP and Unix
      * domain sockets. */
     for (j = 0; j < server.ipfd_count; j++) {
         if (aeCreateFileEvent(server.el, server.ipfd[j], AE_READABLE,
@@ -4195,7 +4203,8 @@ int main(int argc, char **argv) {
     } else {
         serverLog(LL_WARNING, "Configuration loaded");
     }
-
+    // redis 可以配置以守护进程的方式启动（配置文件 daemonize=yes）也可以把redis托管给upstart
+    // 或者 systemd 来启动、停止（supervised = upstart|systemd|auto）
     server.supervised = redisIsSupervised(server.supervised_mode);
     int background = server.daemonize && !server.supervised;
     if (background) daemonize();
@@ -4243,7 +4252,7 @@ int main(int argc, char **argv) {
     if (server.maxmemory > 0 && server.maxmemory < 1024*1024) {
         serverLog(LL_WARNING,"WARNING: You specified a maxmemory value that is less than 1MB (current value is %llu bytes). Are you sure this is what you really want?", server.maxmemory);
     }
-
+    // 设置每次进入事件循环前 server 需要执行 以及每次事件循环结束后 server 需要执行的操作
     aeSetBeforeSleepProc(server.el,beforeSleep);
     aeSetAfterSleepProc(server.el,afterSleep);
     // 进入事件驱动框架，开始循环处理各种触发事件
