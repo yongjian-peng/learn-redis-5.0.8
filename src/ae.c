@@ -44,7 +44,8 @@
 #include "zmalloc.h"
 #include "config.h"
 
-/* Include the best multiplexing layer supported by this system.
+/* 判断是 mac 或者 linux 或者 windows 系统
+ * Include the best multiplexing layer supported by this system.
  * The following should be ordered by performances, descending. */
 #ifdef HAVE_EVPORT
 #include "ae_evport.c"
